@@ -16,8 +16,8 @@ class RSNADataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        patient_id = self.data.loc[idx, "patient_id"]
-        image_id = self.data.loc[idx, "image_id"]
+        patient_id = self.df.loc[idx, "patient_id"]
+        image_id = self.df.loc[idx, "image_id"]
         image_path = os.path.join(
             self.images_path, str(patient_id), str(image_id) + ".dcm"
         )
