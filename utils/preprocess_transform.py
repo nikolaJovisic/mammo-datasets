@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from utils.preprocess import keep_only_breast, otsu_cut, pad, apply_clahe, flip_if_should
+from utils.preprocess import keep_only_breast, otsu_cut, pad, apply_clahe, flip_if_should, negate_if_should
 
 def to_ndarray(img):
     return img if isinstance(img, np.ndarray) else np.asarray(img)
@@ -29,6 +29,7 @@ class PreprocessTransform:
         img = to_ndarray(img)
         img = _CONVERT_TO_UINT8_FROM[self.convert_from](img)
         
+        img = negate_if_should(img)
         img = flip_if_should(img)
         img, mask = keep_only_breast(img)
         
