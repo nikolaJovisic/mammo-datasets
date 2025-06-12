@@ -1,11 +1,14 @@
 embed:
-  train_csv_path: '/home/nikola.jovisic.ivi/nj/embed/train.csv'
-  valid_csv_path: '/home/nikola.jovisic.ivi/nj/embed/valid.csv'
-  test_csv_path: '/home/nikola.jovisic.ivi/nj/embed/test.csv'
+  train_csv_path: '/home/nikola.jovisic.ivi/nj/mammo-datasets/csvs/embed_train.csv'
+  valid_csv_path: '/home/nikola.jovisic.ivi/nj/mammo-datasets/csvs/embed_valid.csv'
+  test_csv_path: '/home/nikola.jovisic.ivi/nj/mammo-datasets/csvs/embed_test.csv'
   images_path: '/embed'
 vindr:
-  csv_path: '/vindr/vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0/breast-level_annotations.csv'
+  csv_path: '/home/nikola.jovisic.ivi/nj/mammo-datasets/csvs/vindr_breast_level.csv'
   images_path: '/vindr/vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0/images'
 rsna:
-  csv_path: '/rsna/train.csv'
+  csv_path: '/home/nikola.jovisic.ivi/nj/mammo-datasets/csvs/rsna.csv'
   images_path: '/rsna/train_images'
+csaw:
+  csv_path: '/home/nikola.jovisic.ivi/nj/mammo-datasets/csvs/csaw.csv'
+  images_path: '/csaw/2021-204-1-1/data/'

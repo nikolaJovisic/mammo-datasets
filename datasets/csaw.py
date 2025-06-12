@@ -1,21 +1,21 @@
 from dataset_specifics import DatasetSpecifics
 from pydicom import dcmread
 
-class RSNASpecifics(DatasetSpecifics):
+class CSAWSpecifics(DatasetSpecifics):
     @property
-    def label_col(self): return "cancer"
+    def label_col(self): return "rad_recall"
 
     @property
-    def view_col(self): return "view"
+    def view_col(self): return "viewposition"
 
     @property
-    def laterality_col(self): return "laterality"
+    def laterality_col(self): return "imagelaterality"
 
     @property
-    def study_col(self): return "patient_id"
+    def study_col(self): return "anon_patientid"
 
     @property
-    def path_col(self): return "dcm_path"
+    def path_col(self): return "anon_filename"
 
     @property
     def cc_col(self): return "CC"
