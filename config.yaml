@@ -1,5 +1,7 @@
 embed:
-  csv_path: '/home/nikola.jovisic.ivi/nj/embed/train.csv'
+  train_csv_path: '/home/nikola.jovisic.ivi/nj/embed/train.csv'
+  valid_csv_path: '/home/nikola.jovisic.ivi/nj/embed/valid.csv'
+  test_csv_path: '/home/nikola.jovisic.ivi/nj/embed/test.csv'
   images_path: '/embed'
 vindr:
   csv_path: '/vindr/vindr-mammo-a-large-scale-benchmark-dataset-for-computer-aided-detection-and-diagnosis-in-full-field-digital-mammography-1.0.0/breast-level_annotations.csv'
