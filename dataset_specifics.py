@@ -36,6 +36,11 @@ class DatasetSpecifics(ABC):
     def mlo_col(self):
         pass
     
+    @property
+    @abstractmethod
+    def normalization_stats(self):
+        pass
+    
     @abstractmethod
     def load_img(self, path):
         pass

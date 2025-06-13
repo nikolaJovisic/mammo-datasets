@@ -22,5 +22,10 @@ class EMBEDSpecifics(DatasetSpecifics):
 
     @property
     def mlo_col(self): return "MLO"
+    
+    @property
+    def normalization_stats(self): return ([0.118, 0.118, 0.118], [0.1775, 0.1775, 0.1775])
 
     def load_img(self, path): return Image.open(path)
+    
+    

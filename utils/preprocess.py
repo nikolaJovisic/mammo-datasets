@@ -177,3 +177,9 @@ def otsu_cut(img):
 
     x = img[min_row : max_row + 1, min_col : max_col + 1]
     return x
+
+def resize_img(img, resize):
+    return cv2.resize(img, (resize[1], resize[0]), interpolation=cv2.INTER_AREA)
+
+def resize_mask(mask, resize):
+    return cv2.resize(mask, (resize[1], resize[0]), interpolation=cv2.INTER_NEAREST)
