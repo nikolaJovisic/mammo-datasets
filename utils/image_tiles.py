@@ -1,7 +1,12 @@
 import numpy as np
-from utils.preprocess import get_breast_mask
+from utils.preprocess import get_breast_mask, prepare_for_preprocess, negate_if_should, flip_if_should
 
-def tile_single(image, mask, tile_size=(518, 518), overlap=0.25, threshold=0.05):
+def tile_single(image, tile_size=(518, 518), overlap=0.25, threshold=0.05):
+    image = prepare_for_preprocess(image)
+    image = negate_if_should(image)
+    image = flip_if_should(image)
+    mask = get_breast_mask(image)
+    
     h, w = image.shape
     tile_h, tile_w = tile_size
     stride_h = int(tile_h * (1 - overlap))
@@ -34,7 +39,6 @@ def tile_single(image, mask, tile_size=(518, 518), overlap=0.25, threshold=0.05)
 def tile_multiple(images, tile_size=(518, 518), overlap=0.25):
     tiles = []
     for image in images:
-        mask = get_breast_mask(image)
         img_tiles = tile_single(image, mask, tile_size, overlap)
         tiles.extend(img_tiles)
     return tiles

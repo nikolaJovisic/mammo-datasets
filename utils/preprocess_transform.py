@@ -3,6 +3,7 @@ import torch
 from enum import Enum, auto
 from utils.preprocess import (
     keep_only_breast,
+    get_breast_mask,
     otsu_cut,
     pad,
     apply_clahe,
@@ -11,6 +12,7 @@ from utils.preprocess import (
     resize_img,
     resize_mask
 )
+from utils.dicom import preprocess_dicom
 
 def to_ndarray(img):
     return img if isinstance(img, np.ndarray) else np.asarray(img)
@@ -32,12 +34,14 @@ _CONVERT_TO_UINT8_FROM = {
 class PreprocessTransform:
     def __init__(
         self,
+        dicom=True,
         clahe=False,
         return_mask=False,
         aspect_ratio=1 // 1,
         resize=None,
         convert_from=ConvertFrom.MINMAX,
     ):
+        self.dicom = dicom
         self.clahe = clahe
         self.return_mask = return_mask
         self.aspect_ratio = aspect_ratio
@@ -45,6 +49,9 @@ class PreprocessTransform:
         self.convert_from = convert_from
 
     def __call__(self, img):
+        if self.dicom:
+            img = preprocess_dicom(img)
+            
         img = to_ndarray(img)
         img = _CONVERT_TO_UINT8_FROM[self.convert_from](img)
 
@@ -61,6 +68,5 @@ class PreprocessTransform:
 
         if self.resize is not None:
             img = resize_img(img, self.resize)
-            mask = resize_mask(mask, self.resize)
 
-        return (img, mask) if self.return_mask else img
+        return (img, get_breast_mask(img)) if self.return_mask else img

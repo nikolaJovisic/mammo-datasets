@@ -7,10 +7,14 @@ import pandas as pd
 from omegaconf import OmegaConf
 from torch.utils.data import Dataset
 
-from utils.image_tiles import tile_multiple
+from utils.image_tiles import tile_single, tile_multiple
 from utils.aggregations import aggregate_by_breast
+from utils.preprocess import resize_img
 from utils.preprocess_transform import PreprocessTransform, ConvertFrom
 from utils.format_transform import FormatTransform, ConvertTo
+from utils.dicom import preprocess_dicom
+
+from dataset_specifics import FileFormat
 
 from datasets.embed import EMBEDSpecifics
 from datasets.rsna import RSNASpecifics
@@ -43,13 +47,15 @@ class ReturnMode(Enum):
     IMAGE_MASK = auto() # (image, breast_mask)
     IMAGE_LABEL = auto() # (image, label), drops rows with no labels
     CC_MLO_LABEL = auto() # (CC, MLO, label), drops rows with no labels, CC/MLO are None if not present
-    CC_MLO_TILES_LABEL = auto() # (CC, MLO, list of tiles of inside of breast, label), drops rows with no labels, CC/MLO are None if not present    
-
+    CC_MLO_TILES_LABEL = auto() # (CC, MLO, list of tiles of inside of breast, label), drops rows with no labels, CC/MLO are None if not present 
+    DICOM = auto()
+    DICOM_TILES = auto()
 
 class MammoDataset(Dataset):
-    def __init__(self, dataset=DatasetEnum.EMBED, split=Split.TRAIN, return_mode=ReturnMode.IMAGE_ONLY,
+    def __init__(self, dataset=DatasetEnum.EMBED, split=Split.ALL, return_mode=ReturnMode.IMAGE_ONLY,
                  labels=None, clahe=False, aspect_ratio=1//1, resize=None, convert_from=ConvertFrom.MINMAX, 
-                 convert_to=ConvertTo.UINT8, tile_size=(1024, 1024), tile_overlap=0.25, cfg_path=None):
+                 convert_to=ConvertTo.UINT8, tile_size=(1024, 1024), tile_overlap=0.25, 
+                 final_resize=None, cfg_path=None):
         
         self.ds_spec = _DATASETS_MAP[dataset]()
         
@@ -61,11 +67,20 @@ class MammoDataset(Dataset):
         self.csv_path = cfg[dataset.value][f'{split.value}csv_path']
         self.images_path = cfg[dataset.value]['images_path']
         
+        is_dicom = self.ds_spec.file_format == FileFormat.DICOM
         
-        self.preprocess_transform = PreprocessTransform(clahe, return_mode==ReturnMode.IMAGE_MASK, 
-                                             aspect_ratio, resize, convert_from)
+        if not is_dicom and return_mode == ReturnMode.DICOM:
+            raise ValueError("Dataset is not of type DICOM, select other return type.")
         
-        self.format_transform = FormatTransform(convert_to, self.ds_spec.normalization_stats)
+        self.preprocess_transform = PreprocessTransform(is_dicom, clahe, return_mode==ReturnMode.IMAGE_MASK,
+                                                        aspect_ratio, resize, convert_from)
+        
+        normalization = None
+        
+        if convert_to == ConvertTo.RGB_TENSOR_NORM:
+            normalization = self.ds_spec.normalization_stats
+        
+        self.format_transform = FormatTransform(convert_to, normalization, final_resize)
         
         self.return_mode = return_mode
         
@@ -92,12 +107,27 @@ class MammoDataset(Dataset):
         else:
             row = self.df.iloc[idx]
             return self._get_ret_val(row)
-
-
+    
+    def _load_from_path_on_col(self, row, col):
+        if row[col] is None:
+            return None
+        
+        path = os.path.join(self.images_path, row[col])
+        img = self.ds_spec.read_file(path)
+        return self.preprocess_transform(img)
+        
     def _get_ret_val(self, row):
-        if self.return_mode in [ReturnMode.IMAGE_ONLY, ReturnMode.IMAGE_LABEL, ReturnMode.IMAGE_MASK]:
+        
+        if self.return_mode in [ReturnMode.IMAGE_ONLY, ReturnMode.IMAGE_LABEL, ReturnMode.IMAGE_MASK, ReturnMode.DICOM, ReturnMode.DICOM_TILES]:
             img_path = os.path.join(self.images_path, row[self.ds_spec.path_col])
-            img = self.ds_spec.load_img(img_path)
+            img = self.ds_spec.read_file(img_path)
+            
+            if self.return_mode == ReturnMode.DICOM:
+                return img
+            
+            if self.return_mode == ReturnMode.DICOM_TILES:
+                return img, tile_single(preprocess_dicom(img), self.tile_size, self.tile_overlap)
+            
             preprocessed = self.preprocess_transform(img)
             
             if self.return_mode == ReturnMode.IMAGE_MASK:
@@ -109,23 +139,15 @@ class MammoDataset(Dataset):
             
             return self.format_transform(preprocessed)
 
-        cc = mlo = None
-        if row[self.ds_spec.cc_col] is not None:
-            cc_path = os.path.join(self.images_path, row[self.ds_spec.cc_col])
-            cc = self.ds_spec.load_img(cc_path)
-            cc = self.preprocess_transform(cc)
-
-        if row[self.ds_spec.mlo_col] is not None:
-            mlo_path = os.path.join(self.images_path, row[self.ds_spec.mlo_col])
-            mlo = self.ds_spec.load_img(mlo_path)
-            mlo = self.preprocess_transform(mlo)
+        cc = self._load_from_path_on_col(row, self.ds_spec.cc_col)   
+        mlo = self._load_from_path_on_col(row, self.ds_spec.mlo_col)
 
         if self.return_mode == ReturnMode.CC_MLO_LABEL:
             return self.format_transform(cc), self.format_transform(mlo), row[self.ds_spec.label_col]
 
         if self.return_mode == ReturnMode.CC_MLO_TILES_LABEL:
             images = [img for img in (cc, mlo) if img is not None]
-            tiles = tile_multiple(images, self.tile_size)
+            tiles = tile_multiple(images, self.tile_size, self.tile_overlap)
             
             cc = self.format_transform(cc)
             mlo = self.format_transform(mlo)

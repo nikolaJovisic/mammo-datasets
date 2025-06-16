@@ -1,5 +1,4 @@
-from dataset_specifics import DatasetSpecifics
-from PIL import Image
+from dataset_specifics import *
 
 class EMBEDSpecifics(DatasetSpecifics):
     @property
@@ -26,6 +25,7 @@ class EMBEDSpecifics(DatasetSpecifics):
     @property
     def normalization_stats(self): return ([0.118, 0.118, 0.118], [0.1775, 0.1775, 0.1775])
 
-    def load_img(self, path): return Image.open(path)
+    @property
+    def file_format(self): return FileFormat.PNG
     
     

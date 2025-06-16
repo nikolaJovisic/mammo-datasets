@@ -2,6 +2,8 @@ from enum import Enum, auto
 import torch
 import numpy as np
 
+from utils.preprocess import resize_img
+
 def get_imagenet_normalization():
     return ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
@@ -33,7 +35,8 @@ class FormatTransform:
     def __init__(
         self,
         convert_to=ConvertTo.UINT8,
-        normalization=None
+        normalization=None,
+        final_resize=None
     ):
         self.convert_to = convert_to
         
@@ -41,8 +44,12 @@ class FormatTransform:
             raise ValueError(f"Set normalization parameter for this type of conversion.")
         
         self.normalization = normalization
+        self.resize = final_resize
 
     def __call__(self, img):
+        if self.resize is not None:
+            img = resize_img(img, self.resize)
+            
         return _CONVERT_FROM_UINT8_TO[self.convert_to](img, self.normalization)
 
     

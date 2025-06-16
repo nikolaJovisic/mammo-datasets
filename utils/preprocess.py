@@ -1,8 +1,15 @@
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 from skimage.filters import threshold_otsu
 
+def prepare_for_preprocess(img):
+    if hasattr(img, 'dtype') or img.dtype == np.uint8:
+        return img
+    
+    ret_img = np.array(image, dtype=np.float32)
+    ret_img = 255 * (ret_img - np.min(ret_img)) / (np.max(ret_img) - np.min(ret_img))
+    return ret_img.astype(np.uint8)
+        
 
 def add_one_if_even(number):
     if number % 2 == 0:

@@ -1,4 +1,16 @@
 from abc import ABC, abstractmethod
+from enum import Enum, auto
+from PIL import Image
+from pydicom import dcmread
+
+class FileFormat(Enum):
+    DICOM = auto()
+    PNG = auto()
+    
+_READ_FILE = {
+    FileFormat.DICOM: lambda path: dcmread(path),
+    FileFormat.PNG: lambda path: Image.open(path),
+}
 
 class DatasetSpecifics(ABC):
     @property
@@ -25,25 +37,25 @@ class DatasetSpecifics(ABC):
     @abstractmethod
     def path_col(self):
         pass
-
-    @property
-    @abstractmethod
-    def cc_col(self):
-        pass
-
-    @property
-    @abstractmethod
-    def mlo_col(self):
-        pass
     
     @property
     @abstractmethod
     def normalization_stats(self):
         pass
     
-    @abstractmethod
-    def load_img(self, path):
-        pass
+    @property
+    def cc_col(self):
+        return "CC"
+
+    @property
+    def mlo_col(self):
+        return "MLO"
+    
+    @property
+    def file_format(self): return FileFormat.DICOM
+
+    def read_file(self, path):
+        return _READ_FILE[self.file_format](path)
     
     def get_agg_columns(self):
         return (
