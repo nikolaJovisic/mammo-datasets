@@ -15,6 +15,11 @@ _READ_FILE = {
 class DatasetSpecifics(ABC):
     @property
     @abstractmethod
+    def name(self):
+        pass
+    
+    @property
+    @abstractmethod
     def label_col(self):
         pass
 
@@ -53,6 +58,8 @@ class DatasetSpecifics(ABC):
     
     @property
     def file_format(self): return FileFormat.DICOM
+    
+    def raw_numpy(self, entry): return entry.pixel_array 
 
     def read_file(self, path):
         return _READ_FILE[self.file_format](path)

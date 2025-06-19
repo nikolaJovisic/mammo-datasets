@@ -2,6 +2,9 @@ from dataset_specifics import *
 
 class CSAWSpecifics(DatasetSpecifics):
     @property
+    def name(self): return "csaw"
+    
+    @property
     def label_col(self): return "rad_recall"
 
     @property

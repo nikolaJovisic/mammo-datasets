@@ -1,6 +1,10 @@
 from dataset_specifics import *
+import numpy as np
 
 class EMBEDSpecifics(DatasetSpecifics):
+    @property
+    def name(self): return "embed"
+    
     @property
     def label_col(self): return "asses"
 
@@ -15,17 +19,13 @@ class EMBEDSpecifics(DatasetSpecifics):
 
     @property
     def path_col(self): return "png_path"
-
-    @property
-    def cc_col(self): return "CC"
-
-    @property
-    def mlo_col(self): return "MLO"
     
     @property
     def normalization_stats(self): return ([0.118, 0.118, 0.118], [0.1775, 0.1775, 0.1775])
 
     @property
     def file_format(self): return FileFormat.PNG
+    
+    def raw_numpy(self, entry): return np.asarray(entry).astype(np.uint16)
     
     

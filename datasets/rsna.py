@@ -2,6 +2,9 @@ from dataset_specifics import *
 
 class RSNASpecifics(DatasetSpecifics):
     @property
+    def name(self): return "rsna"
+    
+    @property
     def label_col(self): return "cancer"
 
     @property

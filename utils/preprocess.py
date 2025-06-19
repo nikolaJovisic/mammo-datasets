@@ -190,3 +190,18 @@ def resize_img(img, resize):
 
 def resize_mask(mask, resize):
     return cv2.resize(mask, (resize[1], resize[0]), interpolation=cv2.INTER_NEAREST)
+
+def fill_holes(mask):
+    mask[0] = 1
+    mask[-1] = 1
+    if should_flip(mask):
+        mask[:, -1] = 1
+    else:
+        mask[:, 0] = 1
+    
+    mask_255 = (mask * 255).astype(np.uint8)
+    contours, _ = cv2.findContours(mask_255, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    filled = np.zeros_like(mask_255)
+    for i, cnt in enumerate(contours):
+        cv2.drawContours(filled, [cnt], -1, 255, -1)
+    return (filled > 0).astype(np.uint8)

@@ -45,7 +45,7 @@ class PreprocessTransform:
         self.clahe = clahe
         self.return_mask = return_mask
         self.aspect_ratio = aspect_ratio
-        self.resize = resize
+        self.resize = (resize, resize) if isinstance(resize, int) else resize
         self.convert_from = convert_from
 
     def __call__(self, img):

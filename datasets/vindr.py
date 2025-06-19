@@ -2,6 +2,9 @@ from dataset_specifics import *
 
 class VINDRSpecifics(DatasetSpecifics):
     @property
+    def name(self): return "vindr"
+    
+    @property
     def label_col(self): return "breast_birads"
 
     @property
