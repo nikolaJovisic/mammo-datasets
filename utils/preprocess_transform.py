@@ -12,24 +12,10 @@ from utils.preprocess import (
     resize_img,
     resize_mask
 )
-from utils.dicom import preprocess_dicom
+from windowing.apply import window as apply_windowing
 
 def to_ndarray(img):
     return img if isinstance(img, np.ndarray) else np.asarray(img)
-
-
-class ConvertFrom(Enum):
-    UINT8 = auto()
-    UINT16 = auto()
-    MINMAX = auto()
-
-
-_CONVERT_TO_UINT8_FROM = {
-    ConvertFrom.UINT8: lambda x: x,
-    ConvertFrom.UINT16: lambda x: (x // 255).astype(np.uint8),
-    ConvertFrom.MINMAX: lambda x: (255 * ((x - x.min()) / (x.max() - x.min()))).astype(np.uint8)
-}
-
 
 class PreprocessTransform:
     def __init__(
@@ -38,24 +24,26 @@ class PreprocessTransform:
         clahe=False,
         return_mask=False,
         aspect_ratio=1 // 1,
-        resize=None,
-        convert_from=ConvertFrom.MINMAX,
+        resize=None
     ):
         self.dicom = dicom
         self.clahe = clahe
         self.return_mask = return_mask
         self.aspect_ratio = aspect_ratio
         self.resize = (resize, resize) if isinstance(resize, int) else resize
-        self.convert_from = convert_from
 
-    def __call__(self, img):
+    def __call__(self, img, window=(None, None)):
         if self.dicom:
-            img = preprocess_dicom(img)
-            
+            img = img.pixel_array
+        
         img = to_ndarray(img)
-        img = _CONVERT_TO_UINT8_FROM[self.convert_from](img)
-
         img = negate_if_should(img)
+        
+        if None in window:
+            window = img.min(), img.max()
+        
+        img = apply_windowing(img, *window)
+        
         img = flip_if_should(img)
         img, mask = keep_only_breast(img)
 

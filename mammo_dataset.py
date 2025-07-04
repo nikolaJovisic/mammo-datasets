@@ -10,9 +10,9 @@ from torch.utils.data import Dataset
 from utils.image_tiles import tile_single, tile_multiple
 from utils.aggregations import aggregate_by_breast
 from utils.preprocess import resize_img
-from utils.preprocess_transform import PreprocessTransform, ConvertFrom
+from utils.preprocess_transform import PreprocessTransform
 from utils.format_transform import FormatTransform, ConvertTo
-from utils.dicom import preprocess_dicom
+from utils.to_dict import dataset_to_dict
 
 from dataset_specifics import FileFormat
 
@@ -43,28 +43,30 @@ class Split(Enum):
     
 
 class ReturnMode(Enum):
-    IMAGE_ONLY = auto() # (image)
-    IMAGE_MASK = auto() # (image, breast_mask)
-    IMAGE_LABEL = auto() # (image, label), drops rows with no labels
-    RAW = auto() # (raw), raw dicom/PIL.Image object
-    RAW_NUMPY = auto() # (ndarray), raw image data, no preprocessing and formatting
-    DICOM_TILES = auto() # (dcm_file, tiles_of_raw_image_data)
-    CC_MLO_LABEL = auto() # (CC, MLO, label), drops rows with no labels, CC/MLO are None if not present
-    CC_MLO_TILES_LABEL = auto() # (CC, MLO, list of tiles of inside of breast, label), drops rows with no labels, CC/MLO are None if not present 
-    
-_SINGLE_ROW_MODES = [ReturnMode.IMAGE_ONLY, 
-                    ReturnMode.IMAGE_LABEL, 
-                    ReturnMode.IMAGE_MASK, 
-                    ReturnMode.RAW, 
-                    ReturnMode.RAW_NUMPY, 
-                    ReturnMode.DICOM_TILES]
+    IMAGE_ONLY = "image_only" # (image)
+    IMAGE_MASK = "image_mask" # (image, breast_mask)
+    IMAGE_LABEL = "image_label" # (image, label), drops rows with no labels
+    IMAGE_RAW = "image_raw" # (raw), raw dicom/PIL.Image object
+    IMAGE_RAW_NUMPY = "image_raw_numpy" # (ndarray), raw image data, no preprocessing and formatting
+    BREAST_LABEL = "breast_label" # (list of images of breast for a study, label), drops rows with no labels
+    BREAST_TILES_LABEL = "breast_tiles_label" # (list of images of breast for a study, list of tiles of inside of breast of all images, label), drops rows with no labels
+
 
 class MammoDataset(Dataset):
     def __init__(self, dataset=DatasetEnum.EMBED, split=Split.ALL, return_mode=ReturnMode.IMAGE_ONLY,
                  convert_to=ConvertTo.UINT8, labels=None, clahe=False, aspect_ratio=1//1, resize=None, 
-                 convert_from=ConvertFrom.MINMAX, tile_size=(1024, 1024), tile_overlap=0.25, 
-                 final_resize=None, return_index=False, cfg_path=None):
+                 tile_size=None, tile_overlap=None, final_resize=None, return_index=False, limit=None, 
+                 read_window=False, cfg_path=None):
         
+        if 'tiles' in return_mode.value:
+            if tile_size is None:
+                raise ValueError(f"Set tile_size for return mode {return_mode}.")
+            if tile_overlap is None:
+                tile_overlap = 0.25
+                
+        if isinstance(final_resize, int):
+            final_resize = (final_resize,)*2
+                
         self.ds_spec = _DATASETS_MAP[dataset]()
         
         if cfg_path is None:
@@ -81,7 +83,7 @@ class MammoDataset(Dataset):
         is_dicom = self.ds_spec.file_format == FileFormat.DICOM
         
         self.preprocess_transform = PreprocessTransform(is_dicom, clahe, return_mode==ReturnMode.IMAGE_MASK,
-                                                        aspect_ratio, resize, convert_from)
+                                                        aspect_ratio, resize)
         
         normalization = None
         
@@ -97,11 +99,17 @@ class MammoDataset(Dataset):
                     
         self.labels = labels
         
+        self.limit = limit
+        
         self.df = self._get_df()
         
+        if isinstance(tile_size, int):
+            tile_size = (tile_size,)*2
+            
         self.tile_size = tile_size
         self.tile_overlap = tile_overlap
         
+        self.read_window = read_window
         self.return_index = return_index
         
         
@@ -116,17 +124,12 @@ class MammoDataset(Dataset):
         if isinstance(idx, slice):
             return [self._get_ret_val(row) for _, row in self.df.iloc[idx].iterrows()]
         return self._get_ret_val(self.df.iloc[idx])
-
-
     
-    def _load_from_path_on_col(self, row, col):
-        if row[col] is None:
-            return None
+    def _load_preprocess_from_path(self, path, window):
+        img_path = os.path.join(self.images_path, path)
+        img = self.ds_spec.read_file(img_path)
+        return self.preprocess_transform(img, window)
         
-        path = os.path.join(self.images_path, row[col])
-        img = self.ds_spec.read_file(path)
-        return self.preprocess_transform(img)
-    
     def _get_ret_val(self, row):
         output = self._prepare_output(row)
         if self.return_index:
@@ -134,59 +137,64 @@ class MammoDataset(Dataset):
         return output
         
     def _prepare_output(self, row):
-        if self.return_mode in _SINGLE_ROW_MODES:
-            img_path = os.path.join(self.images_path, row[self.ds_spec.path_col])
-            img = self.ds_spec.read_file(img_path)
-            
-            if self.return_mode == ReturnMode.RAW:
-                return img
-            
-            if self.return_mode == ReturnMode.RAW_NUMPY:
-                return self.ds_spec.raw_numpy(img)
-            
-            if self.return_mode == ReturnMode.DICOM_TILES:
-                return img, tile_single(preprocess_dicom(img), self.tile_size, self.tile_overlap)
-            
-            preprocessed = self.preprocess_transform(img)
-            
-            if self.return_mode == ReturnMode.IMAGE_MASK:
-                img, mask = preprocessed
-                return self.format_transform(img), mask
-            
-            if self.return_mode == ReturnMode.IMAGE_LABEL:
-                return self.format_transform(preprocessed), row[self.ds_spec.label_col]
-            
-            return self.format_transform(preprocessed)
+        return self._image_row_output(row) if self.return_mode.value.startswith('image') else self._breast_row_output(row)
+        
+    def _image_row_output(self, row):
+        img_path = os.path.join(self.images_path, row[self.ds_spec.path_col])
+        img = self.ds_spec.read_file(img_path)
+        window = (row['dcm_window_a'], row['dcm_window_b']) if self.read_window else (None, None)
 
-        cc = self._load_from_path_on_col(row, self.ds_spec.cc_col)   
-        mlo = self._load_from_path_on_col(row, self.ds_spec.mlo_col)
+        if self.return_mode == ReturnMode.IMAGE_RAW:
+            return img
 
-        if self.return_mode == ReturnMode.CC_MLO_LABEL:
-            return self.format_transform(cc), self.format_transform(mlo), row[self.ds_spec.label_col]
+        if self.return_mode == ReturnMode.IMAGE_RAW_NUMPY:
+            return self.ds_spec.raw_numpy(img)
 
-        if self.return_mode == ReturnMode.CC_MLO_TILES_LABEL:
-            images = [img for img in (cc, mlo) if img is not None]
+        preprocessed = self.preprocess_transform(img, window)
+
+        if self.return_mode == ReturnMode.IMAGE_MASK:
+            img, mask = preprocessed
+            return self.format_transform(img), mask
+
+        if self.return_mode == ReturnMode.IMAGE_LABEL:
+            return self.format_transform(preprocessed), self.ds_spec.map_label(row[self.ds_spec.label_col])
+
+        return self.format_transform(preprocessed)
+
+    def _breast_row_output(self, row):
+        images = []
+        for path, window in zip(row[self.ds_spec.path_col], row['window']):
+            if not self.read_window:
+                window = (None, None)
+            images.append(self._load_preprocess_from_path(path, window))
+            
+        if self.return_mode == ReturnMode.BREAST_LABEL:
+            images[:] = map(self.format_transform, images)
+            return images, self.ds_spec.map_label(row[self.ds_spec.label_col])
+        
+        if self.return_mode == ReturnMode.BREAST_TILES_LABEL: 
             tiles = tile_multiple(images, self.tile_size, self.tile_overlap)
-            
-            cc = self.format_transform(cc)
-            mlo = self.format_transform(mlo)
+            images[:] = map(self.format_transform, images)
             tiles[:] = map(self.format_transform, tiles)
-            
-            return cc, mlo, tiles, row[self.ds_spec.label_col]
+            return images, tiles, self.ds_spec.map_label(row[self.ds_spec.label_col])
+        
+        raise NotImplementedError
     
     def _get_df(self):
         df = pd.read_csv(self.csv_path)
         df.reset_index(drop=False, inplace=True)
         df.rename(columns={"index": "csv_index"}, inplace=True)
         
-        if self.return_mode == ReturnMode.CC_MLO_LABEL or self.return_mode == ReturnMode.CC_MLO_TILES_LABEL:
+        if self.return_mode.value.startswith('breast'):
             df = aggregate_by_breast(df, *self.ds_spec.get_agg_columns())
 
         if self.labels is not None:
             df = df[df[self.ds_spec.label_col].isin(self.labels)]
+            
+        if self.limit is not None:
+            df = df.iloc[:self.limit].reset_index(drop=True)
         
         return df
     
     def to_dict(self):
-        from utils.serialization import dataset_to_dict
         return dataset_to_dict(self)

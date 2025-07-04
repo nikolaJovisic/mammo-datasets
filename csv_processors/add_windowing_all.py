@@ -21,11 +21,11 @@ def add_columns_to_csv(csv_path):
     df.to_csv(csv_path, index=False)
 
 def process_item(i):
-    print(f"processing {i} started")
+    #print(f"processing {i} started")
     img = dataset[i]
     img = negate_if_should(img)
     a, b = calculate_a_b(img)
-    print(f"processing {i} finished")
+    #print(f"processing {i} finished")
     def to_int_or_nan(x):
         return int(x) if pd.notna(x) else pd.NA
     ret_val = i, to_int_or_nan(img.min()), to_int_or_nan(a), to_int_or_nan(b), to_int_or_nan(img.max())
@@ -65,12 +65,12 @@ def writer_process(queue, csv_path, stop_token):
 
 
 dataset_loaders = [
-    lambda: MammoDataset(DatasetEnum.VINDR, Split.ALL, return_mode=ReturnMode.RAW_NUMPY),
-    lambda: MammoDataset(DatasetEnum.RSNA, Split.ALL, return_mode=ReturnMode.RAW_NUMPY),
-    lambda: MammoDataset(DatasetEnum.CSAW, Split.ALL, return_mode=ReturnMode.RAW_NUMPY),
-    lambda: MammoDataset(DatasetEnum.EMBED, Split.TRAIN, return_mode=ReturnMode.RAW_NUMPY),
-    lambda: MammoDataset(DatasetEnum.EMBED, Split.VALID, return_mode=ReturnMode.RAW_NUMPY),
-    lambda: MammoDataset(DatasetEnum.EMBED, Split.TEST, return_mode=ReturnMode.RAW_NUMPY)
+    lambda: MammoDataset(DatasetEnum.VINDR, Split.ALL, return_mode=ReturnMode.IMAGE_RAW_NUMPY),
+    lambda: MammoDataset(DatasetEnum.RSNA, Split.ALL, return_mode=ReturnMode.IMAGE_RAW_NUMPY),
+    lambda: MammoDataset(DatasetEnum.CSAW, Split.ALL, return_mode=ReturnMode.IMAGE_RAW_NUMPY),
+    lambda: MammoDataset(DatasetEnum.EMBED, Split.TRAIN, return_mode=ReturnMode.IMAGE_RAW_NUMPY),
+    lambda: MammoDataset(DatasetEnum.EMBED, Split.VALID, return_mode=ReturnMode.IMAGE_RAW_NUMPY),
+    lambda: MammoDataset(DatasetEnum.EMBED, Split.TEST, return_mode=ReturnMode.IMAGE_RAW_NUMPY)
 ]
 
 for load_dataset in dataset_loaders:
@@ -93,12 +93,11 @@ for load_dataset in dataset_loaders:
             yield i
 
 
-    batch_size = 128
+    batch_size = 32
     batch = []
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=128) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=100) as executor:
         for result in executor.map(process_item, arg_generator(), chunksize=1):
-            print(result)
             batch.append(result)
             if len(batch) >= batch_size:
                 print(f"Writing batch of {len(batch)} rows.")

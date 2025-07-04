@@ -174,7 +174,7 @@ def otsu_cut(img):
     mask = otsu_mask(img)
         
     if mask.size == 0 or not np.any(mask):
-        return Image.fromarray(x)
+        return img
 
     rows = np.any(mask == 255, axis=1)
     cols = np.any(mask == 255, axis=0)

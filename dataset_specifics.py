@@ -59,6 +59,8 @@ class DatasetSpecifics(ABC):
     @property
     def file_format(self): return FileFormat.DICOM
     
+    def map_label(self, label): return int(label)
+    
     def raw_numpy(self, entry): return entry.pixel_array 
 
     def read_file(self, path):
@@ -67,11 +69,8 @@ class DatasetSpecifics(ABC):
     def get_agg_columns(self):
         return (
             self.label_col,
-            self.view_col,
             self.laterality_col,
             self.study_col,
             self.path_col,
-            self.cc_col,
-            self.mlo_col,
         )
     

@@ -31,6 +31,12 @@ class UnifiedDataset(Dataset):
     def __init__(self, datasets):
         self.datasets = datasets
         self.indicies = proportional_round_robin_indices([len(ds) for ds in datasets])
+
+        return_modes = [getattr(ds, 'return_mode', None) for ds in datasets]
+        if not all(mode == return_modes[0] for mode in return_modes):
+            raise ValueError('All datasets must have the same return_mode.')
+        
+        self.return_mode = return_modes[0]
         
         print(f'Unified dataset initialized with {len(self.indicies)} rows.')
 
@@ -40,3 +46,10 @@ class UnifiedDataset(Dataset):
     def __getitem__(self, idx):
         ds_idx, sample_idx = self.indicies[idx]
         return self.datasets[ds_idx][sample_idx]
+    
+    def to_dict(self):
+        combined_dict = {'dataset': []}
+        for ds in self.datasets:
+            d = ds.to_dict()
+            combined_dict['dataset'].append(d.get('dataset', {}))
+        return combined_dict

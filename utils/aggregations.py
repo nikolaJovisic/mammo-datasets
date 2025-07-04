@@ -1,27 +1,11 @@
 import pandas as pd
 
-def aggregate_by_breast(df, label_col='asses', 
-                            view_col='ViewPosition', 
-                            laterality_col='ImageLateralityFinal', 
-                            study_col='acc_anon', 
-                            path_col='png_path', 
-                            cc_col='CC', 
-                            mlo_col='MLO'):
-    
+def aggregate_by_breast(df, label_col, laterality_col, study_col, path_col):
     df = df.dropna(subset=[label_col])
-    df = df[df[view_col].isin([cc_col, mlo_col])]
-
-    paths = df.pivot_table(
-        index=[study_col, laterality_col],
-        columns=view_col,
-        values=path_col,
-        aggfunc='first'
-    ).reset_index()
-
+    paths = df.groupby([study_col, laterality_col])[path_col].apply(list).reset_index()
+    df['window'] = list(zip(df['window_a'], df['window_b']))
+    windowings = df.groupby([study_col, laterality_col])['window'].apply(list).reset_index()
     label = df.groupby([study_col, laterality_col])[label_col].max().reset_index()
-    df = pd.merge(paths, label, on=[study_col, laterality_col])
-
-    for col in [cc_col, mlo_col]:
-        df[col] = df[col].where(df[col].notna(), None).astype(object)
-        
+    df = pd.merge(paths, windowings, on=[study_col, laterality_col])
+    df = pd.merge(df, label, on=[study_col, laterality_col])
     return df
