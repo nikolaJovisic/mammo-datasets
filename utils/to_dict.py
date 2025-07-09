@@ -9,7 +9,6 @@ def dataset_to_dict(dataset, top_element='dataset'):
 
     dataset_info['constructor_args'] = {
         'dataset': dataset.ds_spec.name,
-        'split': dataset.split.name,
         'return_mode': dataset.return_mode.name,
         'convert_to': dataset.format_transform.convert_to.name,
         'labels': dataset.labels,

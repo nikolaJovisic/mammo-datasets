@@ -35,12 +35,6 @@ _DATASETS_MAP = {
     DatasetEnum.CSAW: CSAWSpecifics
 }
     
-class Split(Enum):
-    TRAIN = "train_"
-    VALID = "valid_"
-    TEST = "test_"
-    ALL = ""
-    
 
 class ReturnMode(Enum):
     IMAGE_ONLY = "image_only" # (image)
@@ -53,7 +47,7 @@ class ReturnMode(Enum):
 
 
 class MammoDataset(Dataset):
-    def __init__(self, dataset=DatasetEnum.EMBED, split=Split.ALL, return_mode=ReturnMode.IMAGE_ONLY,
+    def __init__(self, dataset=DatasetEnum.EMBED, return_mode=ReturnMode.IMAGE_ONLY,
                  convert_to=ConvertTo.UINT8, labels=None, clahe=False, aspect_ratio=1//1, resize=None, 
                  tile_size=None, tile_overlap=None, final_resize=None, return_index=False, limit=None, 
                  read_window=False, cfg_path=None):
@@ -76,8 +70,7 @@ class MammoDataset(Dataset):
 
         self.cfg = OmegaConf.load(self.cfg_path)
         
-        self.split = split
-        self.csv_path = self.cfg[dataset.value][f'{split.value}csv_path']
+        self.csv_path = self.cfg[dataset.value][f'csv_path']
         self.images_path = self.cfg[dataset.value]['images_path']
         
         is_dicom = self.ds_spec.file_format == FileFormat.DICOM
@@ -142,7 +135,7 @@ class MammoDataset(Dataset):
     def _image_row_output(self, row):
         img_path = os.path.join(self.images_path, row[self.ds_spec.path_col])
         img = self.ds_spec.read_file(img_path)
-        window = (row['dcm_window_a'], row['dcm_window_b']) if self.read_window else (None, None)
+        window = (row['window_a'], row['window_b']) if self.read_window else (None, None)
 
         if self.return_mode == ReturnMode.IMAGE_RAW:
             return img

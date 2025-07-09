@@ -5,7 +5,7 @@ class CSAWSpecifics(DatasetSpecifics):
     def name(self): return "csaw"
     
     @property
-    def label_col(self): return "rad_recall"
+    def label_col(self): return "label"
 
     @property
     def view_col(self): return "viewposition"

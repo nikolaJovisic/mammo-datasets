@@ -23,11 +23,4 @@ class VINDRSpecifics(DatasetSpecifics):
     def normalization_stats(self): raise NotImplementedError
         
     def map_label(self, label):
-        birads = int(label[-1]) 
-        if birads == 1:
-            return 0
-        if birads in [4, 5]:
-            return 1
-        if birads in [2, 3]:
-            return 2
-        raise ValueError('Unknown birads in vindr.')
+        return int(label[-1]) 

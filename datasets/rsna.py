@@ -5,7 +5,7 @@ class RSNASpecifics(DatasetSpecifics):
     def name(self): return "rsna"
     
     @property
-    def label_col(self): return "cancer"
+    def label_col(self): return "label"
 
     @property
     def view_col(self): return "view"

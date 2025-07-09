@@ -29,11 +29,4 @@ class EMBEDSpecifics(DatasetSpecifics):
     def raw_numpy(self, entry): return np.asarray(entry).astype(np.uint16)
     
     def map_label(self, label):
-        birads = int(label)
-        if birads == 1:
-            return 0
-        if birads in [4, 5]:
-            return 1
-        if birads in [2, 3]:
-            return 2
-        raise ValueError('Unknown birads in vindr.')
+        return int(label)
